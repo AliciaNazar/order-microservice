@@ -67,22 +67,6 @@ public class OrderDTO {
         OrderEntity order = new OrderEntity();
         order.setStatus(orderDTO.getStatus());
         order.setUserId(orderDTO.getUserId());
-        // Mapeo los productos (OrderItemDTO -> OrderItemEntity)
-        if (orderDTO.getProducts() != null) {
-            List<OrderItemEntity> orderItems = orderDTO.getProducts().stream()
-                    .map(dto -> {
-                        OrderItemEntity item = new OrderItemEntity();
-                        item.setProductId(dto.getProductId());
-                        item.setQuantity(dto.getQuantity());
-                        item.setOrderEntity(order); // Relación bidireccional
-                        return item;
-                    })
-                    .collect(Collectors.toList());
-            order.setProducts(orderItems);
-        }else{
-            order.setProducts(Collections.emptyList());
-        }
-
         return order;
     }
 

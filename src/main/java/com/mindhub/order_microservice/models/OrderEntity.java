@@ -3,7 +3,9 @@ package com.mindhub.order_microservice.models;
 import jakarta.persistence.*;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 public class OrderEntity {
@@ -13,7 +15,7 @@ public class OrderEntity {
     private Long id;
     private Long userId;
     @OneToMany(mappedBy = "orderEntity", cascade = CascadeType.REMOVE, orphanRemoval = true)
-    private List<OrderItemEntity> products = new ArrayList<>();
+    private Set<OrderItemEntity> products = new HashSet<>();
     private OrderStatus status = OrderStatus.PENDING;
 
     public OrderEntity() {
@@ -21,7 +23,6 @@ public class OrderEntity {
 
     public OrderEntity(Long userId, List<OrderItemEntity> products, OrderStatus status) {
         this.userId = userId;
-        this.products = products;
         this.status = status;
     }
 
@@ -37,11 +38,11 @@ public class OrderEntity {
         this.userId = userId;
     }
 
-    public List<OrderItemEntity> getProducts() {
+    public Set<OrderItemEntity> getProducts() {
         return products;
     }
 
-    public void setProducts(List<OrderItemEntity> products) {
+    public void setProducts(Set<OrderItemEntity> products) {
         this.products = products;
     }
 
