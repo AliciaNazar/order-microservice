@@ -1,8 +1,10 @@
 package com.mindhub.order_microservice.controllers;
 
 
+import com.mindhub.order_microservice.dtos.NewOrderDTO;
 import com.mindhub.order_microservice.dtos.OrderDTO;
 import com.mindhub.order_microservice.dtos.OrderDTORequest;
+import com.mindhub.order_microservice.exceptions.CustomException;
 import com.mindhub.order_microservice.services.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -21,16 +23,16 @@ public class OrderController {
     @Autowired
     private OrderService orderService;
 
-    @Operation(summary = "Create a new order", description = "Registers a new order in the system.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Order created successfully."),
-            @ApiResponse(responseCode = "400", description = "Invalid input data."),
-    })
-    @PostMapping("/orders")
-    public ResponseEntity<OrderDTO> createOrder(@RequestBody OrderDTORequest orderDTORequest){
-        OrderDTO orderDTO = this.orderService.createOrder(orderDTORequest);
-        return ResponseEntity.status(HttpStatus.CREATED).body(orderDTO);
-    }
+//    @Operation(summary = "Create a new order", description = "Registers a new order in the system.")
+//    @ApiResponses(value = {
+//            @ApiResponse(responseCode = "201", description = "Order created successfully."),
+//            @ApiResponse(responseCode = "400", description = "Invalid input data."),
+//    })
+//    @PostMapping("/orders")
+//    public ResponseEntity<OrderDTO> createOrder(@RequestBody OrderDTORequest orderDTORequest){
+//        OrderDTO orderDTO = this.orderService.createOrder(orderDTORequest);
+//        return ResponseEntity.status(HttpStatus.CREATED).body(orderDTO);
+//    }
 
     @Operation(summary = "Get all orders", description = "Retrieve a list of all orders.")
     @ApiResponses(value = {
@@ -67,5 +69,22 @@ public class OrderController {
         return ResponseEntity.noContent().build();
     }
 
+
+
+
+
+
+
+    @Operation(summary = "Create a new order", description = "Creates a new order based on the provided order details.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Order created successfully."),
+            @ApiResponse(responseCode = "400", description = "Invalid order details provided."),
+            @ApiResponse(responseCode = "500", description = "Internal server error.")
+    })
+    @PostMapping
+    public ResponseEntity<OrderDTO> createOrder(@RequestBody NewOrderDTO newOrder) throws CustomException {
+        OrderDTO createdOrder = orderService.createOrder(newOrder);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdOrder);
+    }
 
 }

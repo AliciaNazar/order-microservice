@@ -15,14 +15,15 @@ public class OrderEntity {
     private Long id;
     private Long userId;
     @OneToMany(mappedBy = "orderEntity", cascade = CascadeType.REMOVE, orphanRemoval = true)
-    private Set<OrderItemEntity> products = new HashSet<>();
+    private Set<OrderItemEntity> orderItemList = new HashSet<>();
     private OrderStatus status = OrderStatus.PENDING;
 
     public OrderEntity() {
     }
 
-    public OrderEntity(Long userId, List<OrderItemEntity> products, OrderStatus status) {
+    public OrderEntity(Long userId, Set<OrderItemEntity> orderItemList, OrderStatus status) {
         this.userId = userId;
+        this.orderItemList = orderItemList;
         this.status = status;
     }
 
@@ -39,11 +40,16 @@ public class OrderEntity {
     }
 
     public Set<OrderItemEntity> getProducts() {
-        return products;
+        return orderItemList;
     }
 
-    public void setProducts(Set<OrderItemEntity> products) {
-        this.products = products;
+
+    public Set<OrderItemEntity> getOrderItemList() {
+        return orderItemList;
+    }
+
+    public void setOrderItemList(Set<OrderItemEntity> orderItemList) {
+        this.orderItemList = orderItemList;
     }
 
     public OrderStatus getStatus() {
@@ -52,5 +58,11 @@ public class OrderEntity {
 
     public void setStatus(OrderStatus status) {
         this.status = status;
+    }
+
+
+    public void addOrderItem(OrderItemEntity orderItem){
+        orderItemList.add(orderItem);
+        orderItem.setOrderEntity(this);
     }
 }

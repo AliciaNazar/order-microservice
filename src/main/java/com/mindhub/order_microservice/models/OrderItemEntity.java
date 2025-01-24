@@ -11,7 +11,6 @@ public class OrderItemEntity {
     private Long id;
     @ManyToOne
     private OrderEntity orderEntity;
-//    private Long orderEntityId;
     private Long productId;
     private Integer quantity;
 
