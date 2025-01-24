@@ -5,6 +5,7 @@ import com.mindhub.order_microservice.exceptions.CustomException;
 import com.mindhub.order_microservice.models.OrderEntity;
 import com.mindhub.order_microservice.models.OrderItemEntity;
 import com.mindhub.order_microservice.models.OrderStatus;
+import com.mindhub.order_microservice.models.ProductError;
 import com.mindhub.order_microservice.repositories.OrderItemRepository;
 import com.mindhub.order_microservice.repositories.OrderRepository;
 import com.mindhub.order_microservice.services.OrderService;
@@ -18,9 +19,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class OrderServiceImpl implements OrderService {
@@ -105,44 +108,69 @@ public class OrderServiceImpl implements OrderService {
 
 
 
+
+
     @Override
-    public OrderDTO createOrder(NewOrderDTO newOrder) throws CustomException {
+    public OrderCreatedDTO createOrder(NewOrderDTO newOrder) throws CustomException {
         String uri = "/email/" + newOrder.getEmail();
         try {
-            // Llamo a UserService para obtener el userId
             Long userId = restTemplate.getForObject(userPath + uri, Long.class);
 
-            // Llamar a ProductService para verificar productos
-                // envío un conjunto de productos (ProductQuantityDTO)
-                // recibo en la respuesta Set<ExistentProductDTO> con info procesada por el servicio
             ParameterizedTypeReference<Set<ExistentProductDTO>> responseType =
                     new ParameterizedTypeReference<>() {};
             HttpEntity<Set<ProductQuantityDTO>> httpEntity = new HttpEntity<>(newOrder.getProductSet());
             ResponseEntity<Set<ExistentProductDTO>> responseEntity = restTemplate.exchange(
                     productPath, HttpMethod.PUT, httpEntity, responseType);
 
-            // Creo la orden y asigno usuario y productos
-            OrderEntity order = new OrderEntity(userId,null,OrderStatus.PENDING);
+            OrderEntity order = new OrderEntity(userId, null, OrderStatus.PENDING);
             orderRepository.save(order);
 
-            // Genero la lista de OrderItems
-            generateOrderItemSet(responseEntity.getBody(), order);
-
-            // Guardo la orden con los ítems ahora
+            generateOrderItemList(responseEntity.getBody().stream().toList(), order);
             orderRepository.save(order);
 
-            return new OrderDTO(order);
+            List<ErrorProductDTO> errorList = generateErrorProductList(newOrder.getProductSet(), responseEntity.getBody().stream().toList());
+
+            OrderDTO orderDTO = new OrderDTO(order);
+
+            return new OrderCreatedDTO(orderDTO, errorList);
         } catch (Exception e) {
             throw new CustomException("Error creating order: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
-    private void generateOrderItemSet(Set<ExistentProductDTO> products, OrderEntity order) {
+
+
+    private List<ErrorProductDTO> generateErrorProductList(Set<ProductQuantityDTO> userProducts,
+                                                           List<ExistentProductDTO> existentProductsList) {
+        List<ErrorProductDTO> errorProductList = new ArrayList<>();
+
+        List<ProductQuantityDTO> aux = userProducts.stream()
+                .filter(userProduct ->
+                        !existentProductsList.stream().anyMatch(availableProduct ->
+                                availableProduct.getId().equals(userProduct.getId()) && availableProduct.getPrice() != null)
+                ).toList();
+
+        aux.forEach(product -> {
+            boolean productExists = existentProductsList.stream()
+                    .anyMatch(p -> p.getId().equals(product.getId()));
+            if (productExists) {
+                errorProductList.add(new ErrorProductDTO(product.getId(), ProductError.NO_STOCK));
+            } else {
+                errorProductList.add(new ErrorProductDTO(product.getId(), ProductError.NOT_FOUND));
+            }
+        });
+
+        return errorProductList;
+    }
+
+    private void generateOrderItemList(List<ExistentProductDTO> productList, OrderEntity order) {
         Set<OrderItemEntity> orderItems = new HashSet<>();
-        for (ExistentProductDTO product : products) {
-            OrderItemEntity orderItem = new OrderItemEntity(order, product.getId(), product.getQuantity());
-            orderItemRepository.save(orderItem);
-            orderItems.add(orderItem);
+        for (ExistentProductDTO product : productList) {
+            if (product.getPrice() != null) {
+                OrderItemEntity orderItem = new OrderItemEntity(order, product.getId(), product.getQuantity());
+                orderItemRepository.save(orderItem);
+                orderItems.add(orderItem);
+            }
         }
         order.setOrderItemList(orderItems);
     }

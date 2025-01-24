@@ -2,6 +2,7 @@ package com.mindhub.order_microservice.controllers;
 
 
 import com.mindhub.order_microservice.dtos.NewOrderDTO;
+import com.mindhub.order_microservice.dtos.OrderCreatedDTO;
 import com.mindhub.order_microservice.dtos.OrderDTO;
 import com.mindhub.order_microservice.dtos.OrderDTORequest;
 import com.mindhub.order_microservice.exceptions.CustomException;
@@ -82,8 +83,8 @@ public class OrderController {
             @ApiResponse(responseCode = "500", description = "Internal server error.")
     })
     @PostMapping
-    public ResponseEntity<OrderDTO> createOrder(@RequestBody NewOrderDTO newOrder) throws CustomException {
-        OrderDTO createdOrder = orderService.createOrder(newOrder);
+    public ResponseEntity<OrderCreatedDTO> createOrder(@RequestBody NewOrderDTO newOrder) throws CustomException {
+        OrderCreatedDTO createdOrder = orderService.createOrder(newOrder);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdOrder);
     }
 
