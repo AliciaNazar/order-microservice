@@ -17,6 +17,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
@@ -112,30 +113,36 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public OrderCreatedDTO createOrder(NewOrderDTO newOrder) throws CustomException {
-        String uri = "/email/" + newOrder.getEmail();
-        try {
-            Long userId = restTemplate.getForObject(userPath + uri, Long.class);
+            String uri = "/email/" + newOrder.getEmail();
+            try {
+                Long userId = restTemplate.getForObject(userPath + uri, Long.class);
 
-            ParameterizedTypeReference<Set<ExistentProductDTO>> responseType =
-                    new ParameterizedTypeReference<>() {};
-            HttpEntity<Set<ProductQuantityDTO>> httpEntity = new HttpEntity<>(newOrder.getProductSet());
-            ResponseEntity<Set<ExistentProductDTO>> responseEntity = restTemplate.exchange(
-                    productPath, HttpMethod.PUT, httpEntity, responseType);
+                ParameterizedTypeReference<Set<ExistentProductDTO>> responseType =
+                        new ParameterizedTypeReference<>() {};
+                HttpEntity<Set<ProductQuantityDTO>> httpEntity = new HttpEntity<>(newOrder.getProductSet());
+                try{
+                    ResponseEntity<Set<ExistentProductDTO>> responseEntity = restTemplate.exchange(
+                            productPath, HttpMethod.PUT, httpEntity, responseType);
 
-            OrderEntity order = new OrderEntity(userId, null, OrderStatus.PENDING);
-            orderRepository.save(order);
+                    OrderEntity order = new OrderEntity(userId, null, OrderStatus.PENDING);
+                    orderRepository.save(order);
 
-            generateOrderItemList(responseEntity.getBody().stream().toList(), order);
-            orderRepository.save(order);
+                    generateOrderItemList(responseEntity.getBody().stream().toList(), order);
+                    orderRepository.save(order);
 
-            List<ErrorProductDTO> errorList = generateErrorProductList(newOrder.getProductSet(), responseEntity.getBody().stream().toList());
+                    List<ErrorProductDTO> errorList = generateErrorProductList(newOrder.getProductSet(), responseEntity.getBody().stream().toList());
 
-            OrderDTO orderDTO = new OrderDTO(order);
+                    OrderDTO orderDTO = new OrderDTO(order);
 
-            return new OrderCreatedDTO(orderDTO, errorList);
-        } catch (Exception e) {
-            throw new CustomException("Error creating order: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+                    return new OrderCreatedDTO(orderDTO, errorList);
+                } catch (Exception e){
+                    throw new CustomException("Error communicating with product-service: " + e.getMessage());
+                }
+            } catch (RestClientException e) {
+                throw new CustomException("User with email " + newOrder.getEmail() + " not found", HttpStatus.NOT_FOUND);
+            } catch (Exception e) {
+                throw new CustomException("Error creating order: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+            }
     }
 
 
