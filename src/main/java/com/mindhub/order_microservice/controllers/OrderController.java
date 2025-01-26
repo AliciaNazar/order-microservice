@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/orders")
 public class OrderController {
 
     @Autowired
@@ -39,7 +39,7 @@ public class OrderController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Orders retrieved successfully."),
     })
-    @GetMapping("/orders")
+    @GetMapping()
     public ResponseEntity<List<OrderDTO>> getOrders(){
         List<OrderDTO> orders = this.orderService.getOrders();
         return ResponseEntity.ok(orders);
@@ -51,7 +51,7 @@ public class OrderController {
             @ApiResponse(responseCode = "404", description = "Order not found"),
             @ApiResponse(responseCode = "400", description = "Invalid request")
     })
-    @PutMapping("/orders/{id}")
+    @PutMapping("/{id}")
     public ResponseEntity<OrderDTO> updateOrderStatus(
             @PathVariable("id") Long id,
             @RequestBody OrderDTORequest orderDTORequest){
@@ -64,7 +64,7 @@ public class OrderController {
             @ApiResponse(responseCode = "204", description = "Order deleted successfully."),
             @ApiResponse(responseCode = "404", description = "Order not found.")
     })
-    @DeleteMapping("/orders/{id}")
+    @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteOrder(@PathVariable("id") Long id){
         this.orderService.deleteOrder(id);
         return ResponseEntity.noContent().build();
