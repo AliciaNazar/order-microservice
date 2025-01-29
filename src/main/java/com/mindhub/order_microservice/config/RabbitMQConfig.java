@@ -20,7 +20,7 @@ public class RabbitMQConfig {
 
     @Bean
     public Queue pdfQueue() {
-        return new Queue("pdf-queue", true);
+        return new Queue("orderCreatedEvent", true);
     }
 
     @Bean
