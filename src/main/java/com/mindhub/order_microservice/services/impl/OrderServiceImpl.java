@@ -231,7 +231,8 @@ public class OrderServiceImpl implements OrderService {
                 throw new CustomException(e.getMessage(),HttpStatus.INTERNAL_SERVER_ERROR);
             }
         }
-        OrderCreatedEvent orderCreatedEvent = new OrderCreatedEvent(order.getId(),"grupo3bootcampaccenture@gmail.com",listProducts);
+        String email = restTemplate.getForObject(userPath+"/"+order.getUserId(),String.class);
+        OrderCreatedEvent orderCreatedEvent = new OrderCreatedEvent(order.getId(),email,listProducts);
 
         rabbitTemplate.convertAndSend("email-exchange", "user.pdf", orderCreatedEvent);
     }
