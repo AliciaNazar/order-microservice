@@ -14,7 +14,7 @@ public class OrderEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private Long userId;
-    @OneToMany(mappedBy = "orderEntity", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    @OneToMany(mappedBy = "orderEntity")
     private Set<OrderItemEntity> orderItemList = new HashSet<>();
     private OrderStatus status = OrderStatus.PENDING;
 
@@ -42,7 +42,6 @@ public class OrderEntity {
     public Set<OrderItemEntity> getProducts() {
         return orderItemList;
     }
-
 
     public Set<OrderItemEntity> getOrderItemList() {
         return orderItemList;

@@ -6,6 +6,7 @@ import com.mindhub.order_microservice.dtos.OrderCreatedDTO;
 import com.mindhub.order_microservice.dtos.OrderDTO;
 import com.mindhub.order_microservice.dtos.OrderDTORequest;
 import com.mindhub.order_microservice.exceptions.CustomException;
+import com.mindhub.order_microservice.models.OrderStatus;
 import com.mindhub.order_microservice.services.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -24,16 +25,6 @@ public class OrderController {
     @Autowired
     private OrderService orderService;
 
-//    @Operation(summary = "Create a new order", description = "Registers a new order in the system.")
-//    @ApiResponses(value = {
-//            @ApiResponse(responseCode = "201", description = "Order created successfully."),
-//            @ApiResponse(responseCode = "400", description = "Invalid input data."),
-//    })
-//    @PostMapping("/orders")
-//    public ResponseEntity<OrderDTO> createOrder(@RequestBody OrderDTORequest orderDTORequest){
-//        OrderDTO orderDTO = this.orderService.createOrder(orderDTORequest);
-//        return ResponseEntity.status(HttpStatus.CREATED).body(orderDTO);
-//    }
 
     @Operation(summary = "Get all orders", description = "Retrieve a list of all orders.")
     @ApiResponses(value = {
@@ -41,7 +32,7 @@ public class OrderController {
     })
     @GetMapping()
     public ResponseEntity<List<OrderDTO>> getOrders(){
-        List<OrderDTO> orders = this.orderService.getOrders();
+        List<OrderDTO> orders = this.orderService.getAllOrders().stream().toList();
         return ResponseEntity.ok(orders);
     }
 
@@ -86,6 +77,13 @@ public class OrderController {
     public ResponseEntity<OrderCreatedDTO> createOrder(@RequestBody NewOrderDTO newOrder) throws CustomException {
         OrderCreatedDTO createdOrder = orderService.createOrder(newOrder);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdOrder);
+    }
+
+
+    @PutMapping("/completeOrder/{id}")
+    public ResponseEntity<?> changeOrderStatus(@PathVariable("id") Long id){
+        this.orderService.changeStatus(id, OrderStatus.COMPLETED);
+        return ResponseEntity.ok("Order completed");
     }
 
 }

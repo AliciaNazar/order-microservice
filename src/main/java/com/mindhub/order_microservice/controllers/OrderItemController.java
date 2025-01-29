@@ -2,7 +2,10 @@ package com.mindhub.order_microservice.controllers;
 
 import com.mindhub.order_microservice.dtos.OrderItemDTO;
 import com.mindhub.order_microservice.dtos.OrderItemDTORequest;
+import com.mindhub.order_microservice.dtos.ProductQuantityDTO;
+import com.mindhub.order_microservice.exceptions.CustomException;
 import com.mindhub.order_microservice.services.OrderItemService;
+import com.mindhub.order_microservice.services.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -11,22 +14,37 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Set;
+
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/orderItems")
 public class OrderItemController {
 
     @Autowired
     private OrderItemService orderItemService;
+
+    @Autowired
+    private OrderService orderService;
+
+
+    @GetMapping("/{orderId}")
+    public ResponseEntity<Set<OrderItemDTO>> getAllOrderItemsByOrderId(@PathVariable Long orderId) throws CustomException {
+        Set<OrderItemDTO> orderItems = orderService.getAllOrderItemsByOrderId(orderId);
+        return ResponseEntity.ok(orderItems);
+    }
+
 
     @Operation(summary = "Create a new order item", description = "Registers a new order item in the system.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Order item created successfully."),
             @ApiResponse(responseCode = "400", description = "Invalid input data."),
     })
-    @PostMapping("/orderItems")
-    public ResponseEntity<OrderItemDTO> createOrderItem(@RequestBody OrderItemDTORequest orderItemDTORequest){
-        OrderItemDTO orderItemDTO = this.orderItemService.createOrderItem(orderItemDTORequest);
-        return ResponseEntity.status(HttpStatus.CREATED).body(orderItemDTO);
+
+
+    @PostMapping("/{orderId}")
+    public ResponseEntity<OrderItemDTO> addOrderItem(@PathVariable Long orderId,@RequestBody ProductQuantityDTO newOrderItem) throws CustomException {
+        OrderItemDTO orderItemRecord = orderService.addOrderItem(orderId, newOrderItem);
+        return ResponseEntity.status(HttpStatus.CREATED).body(orderItemRecord);
     }
 
     @Operation(summary = "Delete an order item by ID", description = "Deletes an existing order item by the provided ID.")
@@ -34,9 +52,20 @@ public class OrderItemController {
             @ApiResponse(responseCode = "204", description = "Order item deleted successfully."),
             @ApiResponse(responseCode = "404", description = "Order item not found.")
     })
-    @DeleteMapping("/orderItems/{id}")
-        public ResponseEntity<?> deleteOrderItem(@PathVariable("id") Long id){
-            this.orderItemService.deleteOrderItem(id);
-            return ResponseEntity.noContent().build();
-        }
+
+
+    @DeleteMapping("/{orderItemId}")
+    public ResponseEntity<Void> deleteOrderItem(@PathVariable Long orderItemId) throws CustomException {
+        orderItemService.deleteOrderItem(orderItemId);
+        return ResponseEntity.noContent().build();
+    }
+
+
+
+    @PutMapping("/{orderItemId}")
+    public ResponseEntity<OrderItemDTO> updateOrderItem(@PathVariable Long orderItemId, @RequestBody Integer quantity) throws CustomException {
+        OrderItemDTO orderItems = orderService.updateOrderItemQuantity(orderItemId, quantity);
+        return ResponseEntity.ok(orderItems);
+    }
+
 }
