@@ -15,7 +15,6 @@ public class OrderItemDTO {
 
     public OrderItemDTO(OrderItemEntity orderItemEntity) {
         this.id = orderItemEntity.getId();
-        //this.order = new OrderDTO(orderItemEntity.getOrderEntity());
         this.productId = orderItemEntity.getProductId();
         this.quantity = orderItemEntity.getQuantity();
     }
@@ -27,14 +26,6 @@ public class OrderItemDTO {
     public void setId(Long id) {
         this.id = id;
     }
-
-//    public OrderDTO getOrder() {
-//        return order;
-//    }
-//
-//    public void setOrder(OrderDTO order) {
-//        this.order = order;
-//    }
 
     public Long getProductId() {
         return productId;

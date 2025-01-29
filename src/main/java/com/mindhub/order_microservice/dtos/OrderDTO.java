@@ -1,14 +1,10 @@
 package com.mindhub.order_microservice.dtos;
 
 import com.mindhub.order_microservice.models.OrderEntity;
-import com.mindhub.order_microservice.models.OrderItemEntity;
 import com.mindhub.order_microservice.models.OrderStatus;
-
-
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
+
 
 public class OrderDTO {
 

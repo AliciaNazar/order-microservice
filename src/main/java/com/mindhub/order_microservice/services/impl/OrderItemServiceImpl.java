@@ -1,9 +1,7 @@
 package com.mindhub.order_microservice.services.impl;
 
-import com.mindhub.order_microservice.dtos.OrderDTO;
 import com.mindhub.order_microservice.dtos.OrderItemDTO;
 import com.mindhub.order_microservice.dtos.OrderItemDTORequest;
-import com.mindhub.order_microservice.dtos.ProductQuantityDTO;
 import com.mindhub.order_microservice.exceptions.CustomException;
 import com.mindhub.order_microservice.models.OrderEntity;
 import com.mindhub.order_microservice.models.OrderItemEntity;
@@ -14,11 +12,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 public class OrderItemServiceImpl implements OrderItemService{
