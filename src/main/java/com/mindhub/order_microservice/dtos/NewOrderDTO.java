@@ -3,7 +3,7 @@ package com.mindhub.order_microservice.dtos;
 import java.util.Set;
 
 public class NewOrderDTO {
-    private String email;
+    private String email; //SACARLE EL EMAIL
     private Set<ProductQuantityDTO> productSet;
 
     public NewOrderDTO() {

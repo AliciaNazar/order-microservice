@@ -10,8 +10,10 @@ import com.mindhub.order_microservice.models.OrderStatus;
 import com.mindhub.order_microservice.models.ProductError;
 import com.mindhub.order_microservice.repositories.OrderItemRepository;
 import com.mindhub.order_microservice.repositories.OrderRepository;
+import com.mindhub.order_microservice.services.OrderItemService;
 import com.mindhub.order_microservice.services.OrderService;
 import org.springframework.amqp.core.AmqpTemplate;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -20,6 +22,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -28,7 +31,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
-public class OrderServiceImpl implements OrderService {
+public class OrderServiceImpl implements OrderService, OrderItemService {
 
     @Autowired
     private OrderRepository orderRepository;
@@ -42,11 +45,14 @@ public class OrderServiceImpl implements OrderService {
     @Value("${USERS_PATH}")
     private String userPath;
 
+    @Value("${ADMIN_PATH}")
+    private String adminPath;
+
     @Value("${PRODUCTS_PATH}")
     private String productPath;
 
     @Autowired
-    private AmqpTemplate rabbitTemplate;
+    private RabbitTemplate rabbitTemplate;
 
     @Override
     public Set<OrderDTO> getAllOrders() {
@@ -74,31 +80,13 @@ public class OrderServiceImpl implements OrderService {
         return orderDTO;
     }
 
-
-
-
     @Override
-    public OrderDTO updateOrderStatus(Long id, OrderDTORequest orderDTORequest) {
-        idValidation(id);
-
-        if( this.orderRepository.existsById(id)){
-            OrderEntity order = this.orderRepository.findById(id)
-                    .orElseThrow();
-            order.setStatus(orderDTORequest.getStatus());
-            order = this.orderRepository.save(order);
-            return new OrderDTO(order);
-        }else{
-            throw new CustomException("Order not found.", HttpStatus.NOT_FOUND);
-        }
-
+    public OrderDTO getOrderByUserId(Long userId, Long orderId) throws CustomException {
+        OrderDTO order = getOrderById(orderId);
+        validateOrderOwner(userId,order.getUserId());
+        return order;
     }
 
-
-    private void idUserValidations(Long id){
-        if (id<=0){
-            throw new CustomException("Invalid User id.");
-        }
-    }
 
     private void idValidation(Long id){
         if (id == null || id <= 0){
@@ -106,11 +94,9 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
-
-
     private Long getUserIdFromEmail(String email) throws CustomException {
         try{
-            String url = userPath + "/email/" + email;
+            String url = adminPath + "/email/" + email;
             Long userId = restTemplate.getForObject(url, Long.class);
             return userId;
         } catch (RestClientException e) {
@@ -127,10 +113,10 @@ public class OrderServiceImpl implements OrderService {
 
 
     @Override
+    @Transactional(rollbackFor = {Exception.class})
     public OrderCreatedDTO createOrder(NewOrderDTO newOrder) throws CustomException {
         Long userId = getUserIdFromEmail(newOrder.getEmail());
         HashMap<Long,Integer> existentProductMap = getExistentProducts(newOrder.getProductSet().stream().toList());
-
 
         OrderEntity order = new OrderEntity(userId,null, OrderStatus.PENDING);
 
@@ -138,10 +124,12 @@ public class OrderServiceImpl implements OrderService {
 
         List<ErrorProductDTO> orderItemsError = setOrderItemList(existentProductMap, newOrder.getProductSet().stream().toList(), order);
 
-        updateProducts(order.getOrderItemList().stream().toList(),-1);
-
         orderRepository.save(order);
-
+        try {
+            updateProducts(order.getOrderItemList().stream().toList(), -1);
+        }catch (Exception e){
+            throw new CustomException(e.getMessage(),HttpStatus.INTERNAL_SERVER_ERROR);
+        }
         OrderDTO orderDTO = new OrderDTO(order);
         OrderCreatedDTO orderCreated = new OrderCreatedDTO(orderDTO, orderItemsError);
 
@@ -202,15 +190,15 @@ public class OrderServiceImpl implements OrderService {
         } catch (RestClientException e) {
             throw new CustomException("Error communicating with product-service", HttpStatus.INTERNAL_SERVER_ERROR);
         }
-
     }
 
 
 
     @Override
-    public OrderDTO changeStatus(Long id, OrderStatus orderStatus) throws CustomException {
-        OrderEntity order = orderRepository.findById(id)
+    public OrderDTO changeStatus(Long userId,String userMail,Long orderId, OrderStatus orderStatus) throws CustomException {
+        OrderEntity order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new CustomException("Order not found.", HttpStatus.NOT_FOUND));
+        validateOrderOwner(userId,order.getUserId());
         order.setStatus(orderStatus);
         order = orderRepository.save(order);
         if (order.getStatus() == OrderStatus.COMPLETED){
@@ -228,7 +216,7 @@ public class OrderServiceImpl implements OrderService {
                 product.setQuantity(item.getQuantity());
                 listProducts.add(product);
             }catch (RestClientException e){
-                throw new CustomException(e.getMessage(),HttpStatus.INTERNAL_SERVER_ERROR);
+                //throw new CustomException(e.getMessage(),HttpStatus.INTERNAL_SERVER_ERROR);
             }
         }
         String email = restTemplate.getForObject(userPath+"/"+order.getUserId(),String.class);
@@ -236,7 +224,6 @@ public class OrderServiceImpl implements OrderService {
 
         rabbitTemplate.convertAndSend("email-exchange", "user.pdf", orderCreatedEvent);
     }
-
 
     @Override
     public void deleteOrder(Long id) throws CustomException {
@@ -248,19 +235,26 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    public void deleteOrderUser(Long userId, Long orderId) throws CustomException{
+        OrderDTO order = getOrderById(orderId);
+        validateOrderOwner(userId,order.getUserId());
+        deleteOrder(orderId);
+    }
+
+    @Override
     public boolean existsOrder(Long id) {
         return orderRepository.existsById(id);
     }
 
 
-
-
     @Override
-    public OrderItemDTO addOrderItem(Long OrderId, ProductQuantityDTO productQuantityDTO) throws CustomException {
+    @Transactional(rollbackFor = {Exception.class})
+    public OrderItemDTO addOrderItem(Long userId, Long OrderId, ProductQuantityDTO productQuantityDTO) throws CustomException {
         OrderEntity order = orderRepository.findById(OrderId).orElseThrow(() -> new CustomException("Order not found.", HttpStatus.NOT_FOUND));
+        validateOrderOwner(userId,order.getUserId());
         validOrderStatus(order.getId());
         validateOrderItem(order.getId(),productQuantityDTO.getId());
-        if (productQuantityDTO.getQuantity()==null || productQuantityDTO.getQuantity()<0){
+        if (productQuantityDTO.getQuantity()<0){
             throw new CustomException("The quantity provide its invalid.");
         }
 
@@ -276,8 +270,11 @@ public class OrderServiceImpl implements OrderService {
 
                 List<OrderItemEntity> orderItemList = new ArrayList<>();
                 orderItemList.add(orderItem);
-                updateProducts(orderItemList,-1);
-
+                try {
+                    updateProducts(orderItemList, -1);
+                }catch (Exception e){
+                    throw new CustomException(e.getMessage(),HttpStatus.INTERNAL_SERVER_ERROR);
+                }
                 orderItemRepository.save(orderItem);
                 order.addOrderItem(orderItem);
                 orderRepository.save(order);
@@ -312,8 +309,9 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public void deleteOrderItem(Long id) throws CustomException {
-        OrderItemEntity orderItem = orderItemRepository.findById(id).orElseThrow(()->new CustomException("Order item not found.", HttpStatus.NOT_FOUND));
+    public void deleteOrderItem(Long userId, Long orderItemId) throws CustomException {
+        OrderItemEntity orderItem = orderItemRepository.findById(orderItemId).orElseThrow(()->new CustomException("Order item not found.", HttpStatus.NOT_FOUND));
+        validateOrderOwner(userId,orderItem.getOrderEntity().getUserId());
         validOrderStatus(orderItem.getOrderEntity().getId());
 
         List<OrderItemEntity> orderItemList = new ArrayList<>();
@@ -325,22 +323,33 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public OrderItemDTO updateOrderItemQuantity(Long id, Integer quantity) throws CustomException {
-        OrderItemEntity orderItem = orderItemRepository.findById(id).orElseThrow(()->new CustomException("Order item not found.", HttpStatus.NOT_FOUND));
+    @Transactional(rollbackFor = {Exception.class})
+    public OrderItemDTO updateOrderItemQuantity(Long userId, Long orderItemId, Integer quantity) throws CustomException {
+        OrderItemEntity orderItem = orderItemRepository.findById(orderItemId).orElseThrow(()->new CustomException("Order item not found.", HttpStatus.NOT_FOUND));
+        validateOrderOwner(userId,orderItem.getOrderEntity().getUserId());
         validOrderStatus(orderItem.getOrderEntity().getId());
 
-        if (quantity>0 && orderItem.getQuantity() != quantity){
-            HashMap<Long, Integer> existentProduct = getExistentProducts(List.of(new ProductQuantityDTO(id,quantity)));
+        int difference = orderItem.getQuantity()-quantity;
 
-            if (existentProduct.get(id)>=quantity){
-                int diference = orderItem.getQuantity()-quantity;
-                updateProducts(List.of(new OrderItemEntity(null,id,diference)),1);
-                orderItem.setQuantity(quantity);
-                orderItem = orderItemRepository.save(orderItem);
-                return new OrderItemDTO(orderItem);
-            }else{
-                throw new CustomException("Not enough stock.", HttpStatus.NOT_ACCEPTABLE);
+        if (quantity>0 && orderItem.getQuantity() != quantity){
+            HashMap<Long, Integer> existentProduct = getExistentProducts(List.of(new ProductQuantityDTO(orderItem.getProductId(),quantity)));
+
+            try {
+                if (difference > 0) {
+                    updateProducts(List.of(new OrderItemEntity(null, orderItem.getProductId(), difference)), 1);
+                } else {
+                    if (existentProduct.get(orderItem.getProductId()) >= -1 * difference) {
+                        updateProducts(List.of(new OrderItemEntity(null, orderItem.getProductId(), difference)), 1);
+                    } else {
+                        throw new CustomException("Not enough stock.", HttpStatus.NOT_ACCEPTABLE);
+                    }
+                }
+            }catch (Exception e){
+                throw new CustomException(e.getMessage(),HttpStatus.INTERNAL_SERVER_ERROR);
             }
+            orderItem.setQuantity(quantity);
+            orderItem = orderItemRepository.save(orderItem);
+            return new OrderItemDTO(orderItem);
         }else{
             throw new CustomException("The quantity provide is invalid", HttpStatus.NOT_ACCEPTABLE);
         }
@@ -351,12 +360,24 @@ public class OrderServiceImpl implements OrderService {
     public boolean existsOrderItem(Long id) {
         return orderItemRepository.existsById(id);
     }
+
     private void validOrderStatus(Long id) throws CustomException {
         OrderDTO order = getOrderById(id);
         if (order.getStatus()==OrderStatus.COMPLETED){
             throw new CustomException("The order must be pending to update the order item.",HttpStatus.UNAUTHORIZED);
         }
     }
+
+
+
+    private void validateOrderOwner(Long userId, Long userOrderId){
+        if (userId != userOrderId) {
+            throw new CustomException("The order is not from this user");
+        }
+    }
+
+
+
 
 }
 

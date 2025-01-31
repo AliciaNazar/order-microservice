@@ -11,16 +11,18 @@ public interface OrderService {
 
     Set<OrderDTO> getAllOrders();
     Set<OrderDTO> getAllOrdersByUserId(Long id);
+    OrderDTO getOrderByUserId(Long userId, Long orderId) throws CustomException;
     OrderDTO getOrderById(Long id) throws CustomException;
-    OrderDTO updateOrderStatus(Long id, OrderDTORequest orderDTORequest);
     void deleteOrder(Long id) throws CustomException;
     boolean existsOrder(Long id);
     OrderCreatedDTO createOrder(NewOrderDTO newOrder) throws CustomException;
-    OrderDTO changeStatus(Long id, OrderStatus orderStatus) throws CustomException;
-    OrderItemDTO addOrderItem(Long OrderId, ProductQuantityDTO productQuantityRecord) throws CustomException;
+    OrderDTO changeStatus(Long userId,String userMail,Long orderId, OrderStatus orderStatus) throws CustomException;
+    OrderItemDTO addOrderItem(Long userId, Long OrderId, ProductQuantityDTO productQuantityDTO) throws CustomException;
     boolean existsOrderItem(Long id);
-    OrderItemDTO updateOrderItemQuantity(Long id, Integer quantity) throws CustomException;
-    void deleteOrderItem(Long id) throws CustomException;
+    OrderItemDTO updateOrderItemQuantity(Long userId, Long orderItemId, Integer quantity) throws CustomException;
+    void deleteOrderItem(Long userId, Long orderItemId) throws CustomException;
     Set<OrderItemDTO> getAllOrderItemsByOrderId(Long id) throws CustomException;
+    void deleteOrderUser(Long userId, Long orderId) throws CustomException;
+
 
 }
